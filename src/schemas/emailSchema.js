@@ -17,6 +17,35 @@ export const oauth2AuthSchema = z.object({
 
 export const authSchema = z.union([appPasswordAuthSchema, oauth2AuthSchema]);
 
+const BLOCKED_FILE_EXTENSIONS = /\.(exe|bat|cmd|sh|vbs|js|scr|jar|iso|dll|msi|vbe|wsf|hta)$/i;
+
+export const attachmentSchema = z
+  .object({
+    filename: z
+      .string()
+      .min(1, "Filename is required")
+      .refine(
+        (name) => !BLOCKED_FILE_EXTENSIONS.test(name),
+        "Executable or dangerous file extensions are blocked by email security policies"
+      ),
+    content: z.string().optional(),
+    path: z
+      .string()
+      .url("Path must be a valid URL")
+      .refine(
+        (url) => url.startsWith("https://"),
+        "Only secure HTTPS URLs are permitted for remote attachments"
+      )
+      .optional(),
+    contentType: z.string().optional(),
+    cid: z.string().optional(),
+    encoding: z.string().default("base64").optional(),
+  })
+  .refine(
+    (data) => data.content || data.path,
+    "Attachment must contain either 'content' (Base64) or 'path' (HTTPS URL)"
+  );
+
 export const emailMessageSchema = z.object({
   to: z.union([
     z.string().email("Invalid recipient email address"),
@@ -30,6 +59,7 @@ export const emailMessageSchema = z.object({
   bcc: z.union([z.string().email(), z.array(z.string().email())]).optional(),
   replyTo: z.string().email().optional(),
   variables: z.record(z.any()).optional(),
+  attachments: z.array(attachmentSchema).max(10, "Maximum 10 attachments allowed per email").optional(),
 });
 
 export const sendEmailRequestSchema = z.object({
