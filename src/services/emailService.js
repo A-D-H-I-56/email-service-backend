@@ -105,6 +105,7 @@ export const sendEmailMessage = async (authConfig, message) => {
     cc: message.cc || undefined,
     bcc: message.bcc || undefined,
     replyTo: message.replyTo || undefined,
+    attachments: message.attachments || undefined,
   };
 
   const info = await transporter.sendMail(mailOptions);
