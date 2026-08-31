@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import helmet from "helmet";
+import mongoose from "mongoose";
 import { clerkMiddleware } from "@clerk/express";
 import { emailRoutes } from "./routes/emailRoutes.js";
 import { connectDB } from "./config/db.js";
@@ -22,7 +23,8 @@ const defaultOrigins = [
   "http://127.0.0.1:3000",
 ];
 
-const envOrigins = (process.env.CORS_ORIGINS || "")
+const rawOrigins = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "";
+const envOrigins = rawOrigins
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
@@ -46,7 +48,7 @@ const corsOptions = {
 // Express 5 compatible CORS middleware
 app.use(cors(corsOptions));
 
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "25mb" }));
 
 // Clerk authentication middleware (adds req.auth)
 if (process.env.CLERK_SECRET_KEY) {
@@ -65,9 +67,18 @@ app.use("/api", emailRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
+  const dbStateMap = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  };
+  const dbStatus = dbStateMap[mongoose.connection?.readyState] || "disconnected";
+
   res.status(200).json({
     status: "ok",
     service: "Open BYOC Email Gateway",
+    database: dbStatus,
     clerkEnabled: !!process.env.CLERK_SECRET_KEY,
     timestamp: new Date().toISOString(),
   });
